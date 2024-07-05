@@ -13,5 +13,8 @@
     "build": "bun bundler.ts",
     "format": "prettier --write '**/*.{js,jsx,ts,tsx,json,md}' '!build/**' '!node_modules/**'"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "chrome-types": "^0.1.291"
+  }
 }

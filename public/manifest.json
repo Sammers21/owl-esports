@@ -1,28 +1,34 @@
 {
   "manifest_version": 3,
-  "name": "Your Extension Name",
-  "version": "0.1.0",
+  "name": "Owl Esports",
+  "version": "0.0.1",
   "web_accessible_resources": [
     {
-      "resources": ["script.js"],
-
-      "matches": ["http://*/*"]
+      "resources": [
+        "script.js"
+      ],
+      "matches": [
+        "https://*/*"
+      ]
     }
   ],
   "content_scripts": [
     {
-      "matches": ["http://*/*"],
-      "js": ["content.js"],
-      "css": ["style.css"]
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": []
     }
   ],
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": ["https://www.dotabuff.com/heroes/arc-warden"],
   "action": {
-    "default_icon": "./images/icon256.png"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "yourcustom@token.io",
-      "strict_min_version": "42.0"
-    }
+    "default_icon": "./images/owl-esports.png"
   }
 }
