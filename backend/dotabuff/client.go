@@ -26,6 +26,14 @@ type Counter struct {
 	MatchesPlayed int64
 }
 
+func (h *Hero) WinRateVsPick(pick []*Counter) float64 {
+	var total float64
+	for _, c := range pick {
+		total += c.WinRate
+	}
+	return total / 5
+}
+
 func (h *Hero) Counters() ([]*Counter, error) {
 	parsed, err := getAndParse(h.Link + "/counters")
 	if err != nil {

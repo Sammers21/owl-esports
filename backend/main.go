@@ -2,57 +2,16 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.io/sammers21/owl-esports/backend/dotabuff"
 )
 
-type Storage struct {
-	Heroes []*dotabuff.Hero
-	Counters map[string][]*dotabuff.Counter
-}
-
-func newStorage() *Storage {
-	return &Storage{
-		Heroes: make([]*dotabuff.Hero, 0),
-		Counters: make(map[string][]*dotabuff.Counter),
-	}
-}
-
-func (s *Storage) LoadHeroes() error {
-	log.Info().Msg("Loading heroes...")
-	heroes, err := dotabuff.Heroes()
-	if err != nil {
-		return err
-	}
-	log.Info().
-		Int("count", len(heroes)).
-		Msg("Heroes has been loaded")
-	s.Heroes = heroes
-	return nil
-}
-
-func (s *Storage) LoadCounters() error {
-	tick := time.Now()
-	for i, hero := range s.Heroes {
-		counters, err := hero.Counters()
-		if err != nil {
-			log.Printf("Error fetching counters for %s: %v", hero.Name, err)
-			continue
-		}
-		log.Info().Msgf("%d/%d: %s has %d counters", i+1, len(s.Heroes), hero.Name, len(counters))
-		s.Counters[hero.Name] = counters
-	}
-	log.Info().Msgf("Counters has been loaded in %0.2f seconds", time.Since(tick).Seconds())
-	return nil
-}
-
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	storage := newStorage()
+	storage := dotabuff.NewStorage() // Use the correct package name for NewStorage
 	err := storage.LoadHeroes()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error loading heroes")
@@ -61,4 +20,15 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error loading counters")
 	}
+
+	heroes, err := storage.FindHeroes([]string{"brew", "sniper", "et", "pang", "hood", 
+								"phoenix", "mk", "ck", "marci", "enigma"})
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error finding heroes")
+	}
+	radiant := heroes[:5]
+	dire := heroes[5:]
+	rw, dw := storage.PickWinRate(radiant, dire)
+	log.Info().Msgf("Radiant winrate: %.2f%%", rw)
+	log.Info().Msgf("Dire winrate: %.2f%%", dw)
 }
