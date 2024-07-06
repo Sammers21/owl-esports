@@ -76,8 +76,6 @@ func (s *Storage) FindHeroes(names []string) ([]*Hero, error) {
 	return heroes, nil
 }
 
-	
-
 func addShortNames(mp *map[string]*Hero, hero *Hero) {
 	addArr := func(arrWords []string) {
 		firstLetter := string(arrWords[0][0])
