@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,7 @@ func (s *Storage) LoadHeroes() error {
 }
 
 func (s *Storage) LoadCounters() error {
+	tick := time.Now()
 	for i, hero := range s.Heroes {
 		counters, err := hero.Counters()
 		if err != nil {
@@ -43,6 +45,7 @@ func (s *Storage) LoadCounters() error {
 		log.Info().Msgf("%d/%d: %s has %d counters", i+1, len(s.Heroes), hero.Name, len(counters))
 		s.Counters[hero.Name] = counters
 	}
+	log.Info().Msgf("Counters has been loaded in %0.2f seconds", time.Since(tick).Seconds())
 	return nil
 }
 
