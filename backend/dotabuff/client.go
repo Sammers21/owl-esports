@@ -54,23 +54,6 @@ func NodeToString(n *html.Node) string {
 	return b.String()
 }
 
-func WalkChildNodes(n *html.Node) {
-	if n == nil {
-		return
-	}
-	str := NodeToString(n)
-	childs := make([]string, 0)
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		childs = append(childs, NodeToString(c))
-	}
-	log.Info().Str("node", str).Strs("childs", childs).Msg("Printing child nodes of node")
-	log.Info().Str("node", str).Msg("Printing child nodes of node")
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		fmt.Printf("Node: %v\n", c.Data)
-		WalkChildNodes(c)
-	}
-}
-
 func getAndParse(url string) (*html.Node, error) {
 	resp, err := http.Get(url)
 	if err != nil {
