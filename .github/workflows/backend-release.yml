@@ -37,4 +37,4 @@ jobs:
             docker pull sammers/owl-esports:latest
             docker stop owl-esports
             docker rm -f owl-esports
-            docker run --restart=always --name owl-esports -d -8080:8080 sammers/owl-esports:latest -t "${{ secrets.TG_TOKEN }}"
+            docker run --restart=always --name owl-esports -d -p8080:8080 sammers/owl-esports:latest -t "${{ secrets.TG_TOKEN }}"
