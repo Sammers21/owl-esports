@@ -20,4 +20,19 @@ func main() {
 	log.Info().
 		Int("count", len(heroes)).
 		Msg("Heroes has been loaded")
+
+
+	for _, hero := range heroes {
+		hero.Counters()
+		break
+		// counters, err := hero.Counters()
+		// if err != nil {
+		// 	log.Printf("Error fetching counters: %v", err)
+		// 	return
+		// }
+		// log.Info().
+		// 	Str("hero", hero.Name).
+		// 	Int("counters-cnt", len(counters)).
+		// 	Msg("Counters")
+	}
 }
