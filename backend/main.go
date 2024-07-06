@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -27,13 +28,23 @@ func main() {
 	}
 	server := http.NewServer(engine)
 	go server.Start(8080)
-	err := engine.LoadHeroes()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading heroes")
+	engineUpd := func() {
+		log.Info().Msg("Updating heroes and counters data from dotabuff")
+		err := engine.LoadHeroes()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error loading heroes")
+		}
+		err = engine.LoadCounters()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error loading counters")
+		}
 	}
-	err = engine.LoadCounters()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading counters")
-	}
+	go func() {
+		engineUpd()
+		// update every 30 minutes
+		for range time.Tick(30 * time.Minute) {
+			engineUpd()
+		}
+	}()
 	select {}
 }
