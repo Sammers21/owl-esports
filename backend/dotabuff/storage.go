@@ -3,6 +3,7 @@ package dotabuff
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -16,6 +17,8 @@ type Storage struct {
 	// aggregated fields
 	HeroShortNames map[string]*Hero
 	CountersMap map[string]map[string]*Counter
+
+	lock sync.Mutex
 }
 
 func NewStorage() *Storage {
@@ -24,10 +27,21 @@ func NewStorage() *Storage {
 		HeroShortNames: make(map[string]*Hero),
 		Counters: make(map[string][]*Counter),
 		CountersMap: make(map[string]map[string]*Counter),
+		lock: sync.Mutex{},
 	}
 }
 
+func (s *Storage) Loaded() bool {
+	status := s.lock.TryLock()
+	if status {
+		defer s.lock.Unlock()
+	} 
+	return status
+}
+
 func (s *Storage) LoadHeroes() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	log.Info().Msg("Loading heroes...")
 	heroes, err := Heroes()
 	if err != nil {
@@ -88,6 +102,8 @@ func addShortNames(mp *map[string]*Hero, hero *Hero) {
 }
 
 func (s *Storage) LoadCounters() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	tick := time.Now()
 	for i, hero := range s.Heroes {
 		counters, err := hero.Counters()
