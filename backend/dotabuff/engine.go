@@ -144,6 +144,9 @@ func (s *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 }
 
 func (s *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
+	if !s.Loaded() {
+		return 0, 0, fmt.Errorf("Data has not been loaded yet. Please try again in like 30 seconds")
+	}
 	if len(all) != 10 {
 		return 0, 0, fmt.Errorf("Invalid number of heroes: %d", len(all))
 	}

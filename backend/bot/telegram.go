@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -10,13 +11,13 @@ import (
 
 type TelegramBot struct {
 	Engine *dotabuff.Engine
-	Token   string
+	Token  string
 }
 
 func NewTelegramBot(engine *dotabuff.Engine, token string) *TelegramBot {
 	return &TelegramBot{
 		Engine: engine,
-		Token:   token,
+		Token:  token,
 	}
 }
 
@@ -33,22 +34,32 @@ func (b *TelegramBot) Start() error {
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
-		if update.Message != nil { // If we got a message
+		if update.Message != nil {
 			text := update.Message.Text
 			split := strings.Split(text, " ")
-			if text == "/start" {
-				log.Printf("[%s] %s", update.Message.From.UserName, text)
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Hello! I'm a bot that can help you with Dota 2 hero counters. Just type the name of the hero you want to know the counters of and I'll provide you with the information.")
+			log.Info().Str("username", update.Message.From.UserName).Str("text", text).Msg("Received message")
+			if text == "/start" || text == "/help" {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Hello! I'm a bot that can help you with Dota 2 hero counters. To get started, type 10 hero names, 5 for each team, and I'll tell you the winrate for each team. For example, type 'muerta es beastmaster tiny sd gyro snapfire underlord hoodwink cm'.")
 				msg.ReplyToMessageID = update.Message.MessageID
 				bot.Send(msg)
 				continue
 			} else if len(split) == 10 {
-				en
+				rw, dw, err := b.Engine.PickWinRateFromLines(split)
+				if err != nil {
+					log.Error().Err(err).Msg("Error fetching pick winrate")
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Error fetching pick winrate: %v", err))
+					msg.ReplyToMessageID = update.Message.MessageID
+					bot.Send(msg)
+					continue
+				}
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Radiant winrate: %.2f%%\nDire winrate: %.2f%%", rw, dw))
+				msg.ReplyToMessageID = update.Message.MessageID
+				bot.Send(msg)
+			} else {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "I'm sorry, I didn't understand that. Please type /start or /help for instructions.")
+				msg.ReplyToMessageID = update.Message.MessageID
+				bot.Send(msg)
 			}
-			log.Printf("[%s] %s", update.Message.From.UserName, text)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-			msg.ReplyToMessageID = update.Message.MessageID
-			bot.Send(msg)
 		}
 	}
 	panic("unreachable")
