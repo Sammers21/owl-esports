@@ -21,9 +21,20 @@ func NewTelegramBot(engine *dotabuff.Engine, token string) *TelegramBot {
 	}
 }
 
+type TGLogger struct{}
+
+func (l *TGLogger) Printf(format string, v ...interface{}) {
+	log.Info().Msgf(format, v...)
+}
+
+func (l *TGLogger) Println(v ...interface{}) {
+	log.Info().Msg(fmt.Sprint(v...))
+}
+
 func (b *TelegramBot) Start() error {
 	log.Info().Msg("Starting telegram bot...")
 	bot, err := tgbotapi.NewBotAPI(b.Token)
+	tgbotapi.SetLogger(&TGLogger{})
 	if err != nil {
 		log.Error().Err(err).Msgf("Error creating telegram bot with token %s", b.Token)
 		panic(err)
