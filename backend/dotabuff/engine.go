@@ -9,37 +9,37 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Storage struct {
+type Engine struct {
 	// original fields
-	Heroes []*Hero
+	Heroes   []*Hero
 	Counters map[string][]*Counter
 
 	// aggregated fields
 	HeroShortNames map[string]*Hero
-	CountersMap map[string]map[string]*Counter
+	CountersMap    map[string]map[string]*Counter
 
 	lock sync.Mutex
 }
 
-func NewStorage() *Storage {
-	return &Storage{
-		Heroes: make([]*Hero, 0),
+func NewEngine() *Engine {
+	return &Engine{
+		Heroes:         make([]*Hero, 0),
 		HeroShortNames: make(map[string]*Hero),
-		Counters: make(map[string][]*Counter),
-		CountersMap: make(map[string]map[string]*Counter),
-		lock: sync.Mutex{},
+		Counters:       make(map[string][]*Counter),
+		CountersMap:    make(map[string]map[string]*Counter),
+		lock:           sync.Mutex{},
 	}
 }
 
-func (s *Storage) Loaded() bool {
+func (s *Engine) Loaded() bool {
 	status := s.lock.TryLock()
 	if status {
 		defer s.lock.Unlock()
-	} 
+	}
 	return status
 }
 
-func (s *Storage) LoadHeroes() error {
+func (s *Engine) LoadHeroes() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	log.Info().Msg("Loading heroes...")
@@ -59,12 +59,12 @@ func (s *Storage) LoadHeroes() error {
 	return nil
 }
 
-func (s *Storage) FindHero(name string) (*Hero, bool) {
+func (s *Engine) FindHero(name string) (*Hero, bool) {
 	hero, ok := s.HeroShortNames[name]
 	return hero, ok
 }
 
-func (s *Storage) FindHeroes(names []string) ([]*Hero, error) {
+func (s *Engine) FindHeroes(names []string) ([]*Hero, error) {
 	heroes := make([]*Hero, 0, len(names))
 	for _, name := range names {
 		hero, ok := s.FindHero(name)
@@ -89,7 +89,7 @@ func addShortNames(mp *map[string]*Hero, hero *Hero) {
 	dash := strings.Split(hero.Name, "-")
 	if len(space) == 2 {
 		addArr(space)
-	}else if len(dash) == 2 {
+	} else if len(dash) == 2 {
 		addArr(dash)
 	} else if len(hero.Name) >= 4 {
 		shortName := string(hero.Name[:4])
@@ -99,7 +99,7 @@ func addShortNames(mp *map[string]*Hero, hero *Hero) {
 	}
 }
 
-func (s *Storage) LoadCounters() error {
+func (s *Engine) LoadCounters() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	tick := time.Now()
@@ -122,7 +122,7 @@ func (s *Storage) LoadCounters() error {
 	return nil
 }
 
-func (s *Storage) PickWinRate(radiant, dire []*Hero) (float64, float64) {
+func (s *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 	var radiantWinRate, direWinRate float64
 	for _, hero := range radiant {
 		counterArr := make([]*Counter, 0)
@@ -143,4 +143,20 @@ func (s *Storage) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 	return radiantWinRate / 5, direWinRate / 5
 }
 
-
+func (s *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
+	if len(all) != 10 {
+		return 0, 0, fmt.Errorf("Invalid number of heroes: %d", len(all))
+	}
+	radiant := all[:5]
+	dire := all[5:]
+	radiantHeroes, err := s.FindHeroes(radiant)
+	if err != nil {
+		return 0, 0, err
+	}
+	direHeroes, err := s.FindHeroes(dire)
+	if err != nil {
+		return 0, 0, err
+	}
+	radiantWinRate, direWinRate := s.PickWinRate(radiantHeroes, direHeroes)
+	return radiantWinRate, direWinRate, nil
+}

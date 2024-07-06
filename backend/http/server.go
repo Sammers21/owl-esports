@@ -11,7 +11,7 @@ import (
 )
 
 type Server struct {
-	Storage *dotabuff.Storage
+	Engine *dotabuff.Engine
 }
 
 type Status struct {
@@ -20,33 +20,29 @@ type Status struct {
 
 type PickWinrateRequest struct {
 	Radiant []string `json:"radiant"`
-	Dire []string `json:"dire"`
+	Dire    []string `json:"dire"`
 }
 
 type PickWinrateResponse struct {
 	RadiantWinrate float64 `json:"radiant_winrate"`
-	DireWinrate float64 `json:"dire_winrate"`
+	DireWinrate    float64 `json:"dire_winrate"`
 }
 
-func NewServer(storage *dotabuff.Storage) *Server {
+func NewServer(engine *dotabuff.Engine) *Server {
 	return &Server{
-		Storage: storage,
+		Engine: engine,
 	}
 }
 
 func (s *Server) Start(port int) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{\"hello\": \"world\"}"))
-	})
 	// LGD vs IG
 	// LGD: muerta, es, beastmaster, tiny, sd
 	// IG: gyro, snapfire, underlord, hoodwink, cm
 	// curl -X POST -H "Content-Type: application/json" -d '{"radiant": ["muerta", "es", "beastmaster", "tiny", "sd"], "dire": ["gyro", "snapfire", "underlord", "hoodwink", "cm"]}' http://localhost:8080/pick-winrate_v1
 	mux.HandleFunc("/pick-winrate_v1", func(w http.ResponseWriter, r *http.Request) {
-		if !s.Storage.Loaded() {
-			http.Error(w, "Storage not loaded", http.StatusServiceUnavailable)
+		if !s.Engine.Loaded() {
+			http.Error(w, "Data has not been loaded yet", http.StatusServiceUnavailable)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -57,22 +53,22 @@ func (s *Server) Start(port int) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		radiantHeroes, err := s.Storage.FindHeroes(req.Radiant)
+		radiantHeroes, err := s.Engine.FindHeroes(req.Radiant)
 		if err != nil {
 			log.Error().Err(err).Msg("Error fetching radiant heroes")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		direHeroes, err := s.Storage.FindHeroes(req.Dire)
+		direHeroes, err := s.Engine.FindHeroes(req.Dire)
 		if err != nil {
 			log.Error().Err(err).Msg("Error fetching dire heroes")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		radiantWinrate, direWinrate := s.Storage.PickWinRate(radiantHeroes, direHeroes)
+		radiantWinrate, direWinrate := s.Engine.PickWinRate(radiantHeroes, direHeroes)
 		resp := PickWinrateResponse{
 			RadiantWinrate: radiantWinrate,
-			DireWinrate: direWinrate,
+			DireWinrate:    direWinrate,
 		}
 		json, err := json.Marshal(resp)
 		if err != nil {
@@ -83,17 +79,16 @@ func (s *Server) Start(port int) error {
 		w.Write(json)
 	})
 
-	
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		status := Status{
-			Ready: s.Storage.Loaded(),
+			Ready: s.Engine.Loaded(),
 		}
-		json, err :=json.Marshal(status)
+		json, err := json.Marshal(status)
 		if err != nil {
 			log.Error().Err(err).Msg("Error marshalling status")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
 		w.Write(json)
 	})
