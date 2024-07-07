@@ -163,3 +163,11 @@ func (s *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
 	radiantWinRate, direWinRate := s.PickWinRate(radiantHeroes, direHeroes)
 	return radiantWinRate, direWinRate, nil
 }
+
+func (s *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64, error) {
+	if !s.Loaded() {
+		return 0, 0, fmt.Errorf("Data has not been loaded yet. Please try again in like 30 seconds")
+	}
+	rw, dw := s.PickWinRate(match.Radiant, match.Dire)
+	return rw, dw, nil
+}

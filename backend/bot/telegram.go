@@ -66,6 +66,26 @@ func (b *TelegramBot) Start() error {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Radiant winrate: %.2f%%\nDire winrate: %.2f%%", rw, dw))
 				msg.ReplyToMessageID = update.Message.MessageID
 				bot.Send(msg)
+			} else if strings.HasPrefix(text, "https://www.dotabuff.com/matches/") {
+				match, err := dotabuff.ExtractHerosFromDBLink(text)
+				if err != nil {
+					log.Error().Err(err).Msg("Error extracting heroes from match")
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Error extracting heroes from match: %v", err))
+					msg.ReplyToMessageID = update.Message.MessageID
+					bot.Send(msg)
+					continue
+				}
+				rw, dw, err := b.Engine.PickWinRateFromDBMatch(match)
+				if err != nil {
+					log.Error().Err(err).Msg("Error fetching pick winrate")
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Error fetching pick winrate: %v", err))
+					msg.ReplyToMessageID = update.Message.MessageID
+					bot.Send(msg)
+					continue
+				}
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Radiant winrate: %.2f%%\nDire winrate: %.2f%%", rw, dw))
+				msg.ReplyToMessageID = update.Message.MessageID
+				bot.Send(msg)
 			} else {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "I'm sorry, I didn't understand that. Please type /start or /help for instructions.")
 				msg.ReplyToMessageID = update.Message.MessageID

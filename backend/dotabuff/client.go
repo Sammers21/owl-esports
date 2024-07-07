@@ -14,6 +14,21 @@ import (
 	"golang.org/x/text/language"
 )
 
+type DotabuffMatch struct {
+	MatchID        int64
+	Dire           []*Hero
+	Radiant        []*Hero
+	DireTeam       *Team
+	RadiantTeam    *Team
+	RadiantWon     bool
+	TournamentLink string
+}
+
+type Team struct {
+	Name string
+	Link string
+}
+
 type Hero struct {
 	Name string
 	Link string
@@ -62,20 +77,92 @@ func NodeToString(n *html.Node) string {
 	return b.String()
 }
 
+func ExtractHerosFromDBLink(link string) (*DotabuffMatch, error) {
+	parsed, err := getAndParse(link)
+	if err != nil {
+		return nil, err
+	}
+	radiant, rTeam, rWon := ParseSide("radiant", parsed)
+	dire, dTeam, _ := ParseSide("dire", parsed)
+	parsedTournamentLink := ParseTournamentLink(parsed)
+	return &DotabuffMatch{
+		MatchID:        0,
+		Dire:           dire,
+		Radiant:        radiant,
+		DireTeam:       dTeam,
+		RadiantTeam:    rTeam,
+		RadiantWon:     rWon,
+		TournamentLink: parsedTournamentLink,
+	}, nil
+}
+
+func ParseTournamentLink(root *html.Node) string {
+	a := htmlquery.FindOne(root, "//dd/a[@class='esports-link']")
+	link := htmlquery.SelectAttr(a, "href")
+	return fmt.Sprintf("https://www.dotabuff.com%v", link)
+}
+
+func ExtractHerosFromDBMatch(id int64) (*DotabuffMatch, error) {
+	link := fmt.Sprintf("https://www.dotabuff.com/matches/%d", id)
+	return ExtractHerosFromDBLink(link)
+}
+
+func ParseSide(side string, root *html.Node) ([]*Hero, *Team, bool) {
+	section := htmlquery.FindOne(root, fmt.Sprintf("//section[@class='%s']", side))
+	sectionChilds := ChildArray(section)
+	header := sectionChilds[0]
+	headerChilds := ChildArray(header)
+	a := headerChilds[0]
+	aHref := htmlquery.SelectAttr(a, "href")
+	aChilds := ChildArray(a)
+	spanWTeamName := aChilds[1]
+	teamName := htmlquery.InnerText(spanWTeamName)
+	article := sectionChilds[1]
+	articleChilds := ChildArray(article)
+	table := articleChilds[0]
+	tableChilds := ChildArray(table)
+	tbodyTwo := tableChilds[1]
+	tbodyTwoChilds := ChildArray(tbodyTwo)
+	heroes := make([]*Hero, 0)
+	for _, tr := range tbodyTwoChilds {
+		hero := HeroFromTr(tr)
+		heroes = append(heroes, hero)
+	}
+	team := &Team{
+		Name: teamName,
+		Link: fmt.Sprintf("https://www.dotabuff.com%v", aHref),
+	}
+	return heroes, team, len(headerChilds) > 1
+}
+
+func HeroFromTr(tr *html.Node) *Hero {
+	trChilds := ChildArray(tr)
+	td := trChilds[0]
+	tdChilds := ChildArray(td)
+	div := tdChilds[0]
+	divChilds := ChildArray(div)
+	div2 := divChilds[0]
+	div2Childs := ChildArray(div2)
+	div3 := div2Childs[0]
+	div3Childs := ChildArray(div3)
+	a := div3Childs[2]
+	link := htmlquery.SelectAttr(a, "href")
+	return DotaHeroFromLink(link)
+}
+
 func getAndParse(url string) (*html.Node, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("Error fetching page: %v", err)
+		log.Error().Err(err).Msg("Error fetching page")
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		log.Printf("Error fetching page: %v", resp.Status)
-		return nil, err
+		return nil, fmt.Errorf("Error fetching page: %v", resp.Status)
 	}
 	parsed, err := htmlquery.Parse(resp.Body)
 	if err != nil {
-		log.Printf("Error parsing body: %v", err)
+		log.Error().Err(err).Msg("Error parsing body")
 		return nil, err
 	}
 	return parsed, nil
