@@ -18,16 +18,19 @@ type Engine struct {
 	HeroShortNames map[string]*Hero
 	CountersMap    map[string]map[string]*Counter
 
-	lock sync.Mutex
+	// internal fields
+	lock  sync.Mutex
+	mysql *MySQL
 }
 
-func NewEngine() *Engine {
+func NewEngine(mysql *MySQL) *Engine {
 	return &Engine{
 		Heroes:         make([]*Hero, 0),
 		HeroShortNames: make(map[string]*Hero),
 		Counters:       make(map[string][]*Counter),
 		CountersMap:    make(map[string]map[string]*Counter),
 		lock:           sync.Mutex{},
+		mysql:          mysql,
 	}
 }
 
@@ -169,5 +172,8 @@ func (s *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64,
 		return 0, 0, fmt.Errorf("Data has not been loaded yet. Please try again in like 30 seconds")
 	}
 	rw, dw := s.PickWinRate(match.Radiant, match.Dire)
+	if s.mysql != nil {
+		go s.mysql.InsertDotabuffMatch(match, "v1", rw, dw)
+	}
 	return rw, dw, nil
 }

@@ -37,4 +37,4 @@ jobs:
             docker pull sammers/owl-esports:latest
             docker stop owl-esports
             docker rm -f owl-esports
-            docker run --memory="500m" --memory-swap="500m" --cpus="1" --restart=always --name owl-esports -d -p8080:8080 sammers/owl-esports:latest -t "${{ secrets.TG_TOKEN }}"
+            docker run --memory="500m" --memory-swap="500m" --cpus="1" --restart=always --name owl-esports -d -p8080:8080 sammers/owl-esports:latest -t "${{ secrets.TG_TOKEN }}" -m "${{ secrets.MYSQL_STR }}"

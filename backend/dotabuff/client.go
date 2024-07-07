@@ -85,8 +85,14 @@ func ExtractHerosFromDBLink(link string) (*DotabuffMatch, error) {
 	radiant, rTeam, rWon := ParseSide("radiant", parsed)
 	dire, dTeam, _ := ParseSide("dire", parsed)
 	parsedTournamentLink := ParseTournamentLink(parsed)
+	matchIdStr := strings.TrimPrefix(link, "https://www.dotabuff.com/matches/")
+	matchId, err := strconv.ParseInt(matchIdStr, 10, 64)
+	if err != nil {
+		log.Printf("Error parsing match id: %v", err)
+		return nil, err
+	}
 	return &DotabuffMatch{
-		MatchID:        0,
+		MatchID:        matchId,
 		Dire:           dire,
 		Radiant:        radiant,
 		DireTeam:       dTeam,

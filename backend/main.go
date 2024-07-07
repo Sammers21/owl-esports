@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.io/sammers21/owl-esports/backend/bot"
@@ -14,11 +15,18 @@ import (
 
 func main() {
 	telegramTokenCli := flag.String("t", "", "Telegram bot token")
+	mysqlCli := flag.String("m", "", "MySQL connection string")
 	flag.Parse()
 	telegramToken := *telegramTokenCli
+	mysql := *mysqlCli
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	engine := dotabuff.NewEngine()
+	mysqlDb, err := dotabuff.NewMySQL(mysql)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error connecting to MySQL")
+		return
+	}
+	engine := dotabuff.NewEngine(mysqlDb)
 	if telegramToken != "" {
 		log.Info().Str("token", telegramToken).Msg("Starting telegram bot")
 		telegramBot := bot.NewTelegramBot(engine, telegramToken)
