@@ -113,10 +113,14 @@ func (s *Engine) LoadCounters() error {
 			continue
 		}
 		log.Info().Msgf("%d/%d: %s has %d counters", i+1, len(s.Heroes), hero.Name, len(counters))
+		if hero.Name == "Keeper Of The Light" {
+			// s.CountersMap[c.Hero.Name]["Keeper Of The Light"] = c
+			fmt.Print("Keeper Of The Light counters: " + fmt.Sprint(counters))
+		}
 		s.Counters[hero.Name] = counters
 		for _, c := range counters {
 			if _, ok := s.CountersMap[c.Hero.Name]; !ok {
-				s.CountersMap[c.Hero.Name] = make(map[string]*Counter)
+				s.CountersMap[c.Hero.Name] = make(map[string]*Counter, 0)
 			}
 			s.CountersMap[c.Hero.Name][hero.Name] = c
 		}
@@ -138,8 +142,15 @@ func (s *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 	for _, hero := range dire {
 		counterArr := make([]*Counter, 0)
 		for _, enemy := range radiant {
-			countersOfHero := s.CountersMap[hero.Name]
-			counterArr = append(counterArr, countersOfHero[enemy.Name])
+			countersOfHeroMap := s.CountersMap[hero.Name]
+			if countersOfHeroMap == nil {
+				panic(fmt.Sprintf("Counters not found for %s", hero.Name))
+			}
+			heroCounterList := countersOfHeroMap[enemy.Name]
+			if heroCounterList == nil {
+				panic(fmt.Sprintf("Counter not found for %s vs %s", hero.Name, enemy.Name))
+			}
+			counterArr = append(counterArr, heroCounterList)
 		}
 		direWinRate += hero.WinRateVsPick(counterArr)
 	}

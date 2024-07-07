@@ -42,7 +42,7 @@ type Counter struct {
 }
 
 func (h *Hero) WinRateVsPick(pick []*Counter) float64 {
-	var total float64
+	var total float64 = 0
 	for _, c := range pick {
 		total += c.WinRate
 	}
@@ -251,6 +251,9 @@ func DotaHeroFromLink(link string) *Hero {
 }
 
 func prettyName(name string) string {
+	if name == "keeper-of-the-light" {
+		return "Keeper of the Light"
+	}
 	split := strings.Split(name, "-")
 	caser := cases.Title(language.English)
 	for i, s := range split {
