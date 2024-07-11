@@ -47,7 +47,7 @@ func (b *TelegramBot) Start() error {
 	for update := range updates {
 		if update.Message != nil {
 			text := update.Message.Text
-			split := strings.Split(text, " ")
+			split := strings.Split(text, ",")
 			log.Info().Str("username", update.Message.From.UserName).Str("text", text).Msg("Received message")
 			if text == "/start" || text == "/help" {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Hello! I'm a bot that can help you with Dota 2 hero counters. To get started, type 10 hero names, 5 for each team, and I'll tell you the winrate for each team. For example, type 'muerta es beastmaster tiny sd gyro snapfire underlord hoodwink cm'.")

@@ -24,6 +24,14 @@ type DotabuffMatch struct {
 	TournamentLink string
 }
 
+type RadiantDireWinrate struct {
+	Hero            *Hero
+	RadiantWinrate  float64
+	RadiantPickRate float64
+	DireWinrate     float64
+	DirePickRate    float64
+}
+
 type Team struct {
 	Name string
 	Link string
@@ -41,12 +49,13 @@ type Counter struct {
 	MatchesPlayed int64
 }
 
-func (h *Hero) WinRateVsPick(pick []*Counter) float64 {
+func (h *Hero) WinRateVsPick(pick []*Counter, radiant bool, SideMultiplier float64) float64 {
 	var total float64 = 0
 	for _, c := range pick {
 		total += c.WinRate
 	}
-	return total / 5
+	averageWR := total / 5
+	return averageWR * SideMultiplier
 }
 
 func (h *Hero) Counters() ([]*Counter, error) {
@@ -220,6 +229,60 @@ func ChildArray(n *html.Node) []*html.Node {
 	return res
 }
 
+func RaidantAndDireWR() ([]*RadiantDireWinrate, error) {
+	parsed, err := getAndParse("https://www.dotabuff.com/heroes/meta?view=played&metric=faction")
+	if err != nil {
+		return nil, err
+	}
+	tbody := htmlquery.FindOne(parsed, "//section/footer/article/table/tbody")
+	tbodyChilds := ChildArray(tbody)
+	res := make([]*RadiantDireWinrate, 0)
+	for _, tr := range tbodyChilds {
+		trChilds := ChildArray(tr)
+		tdOne := trChilds[1]
+		a := ChildArray(tdOne)[0]
+		href := htmlquery.SelectAttr(a, "href")
+		hero := DotaHeroFromLink(href)
+		tdTwo := trChilds[2]
+		tdThree := trChilds[3]
+		tdFour := trChilds[4]
+		tdFive := trChilds[5]
+		rdWinrate := htmlquery.SelectAttr(tdThree, "data-value")
+		// parse rdWinrate to float
+		rdWinrateParsed, err := strconv.ParseFloat(rdWinrate, 64)
+		if err != nil {
+			log.Printf("Error parsing rdWinrate: %v for hero %v", err, hero.Name)
+			return nil, err
+		}
+		rdPickRate := htmlquery.SelectAttr(tdTwo, "data-value")
+		rdPickRateParsed, err := strconv.ParseFloat(rdPickRate, 64)
+		if err != nil {
+			log.Printf("Error parsing rdPickRate: %v for hero %v", err, hero.Name)
+			return nil, err
+		}
+		direWinrate := htmlquery.SelectAttr(tdFive, "data-value")
+		direWinrateParsed, err := strconv.ParseFloat(direWinrate, 64)
+		if err != nil {
+			log.Printf("Error parsing direWinrate: %v for hero %v", err, hero.Name)
+			return nil, err
+		}
+		direPickRate := htmlquery.SelectAttr(tdFour, "data-value")
+		direPickRateParsed, err := strconv.ParseFloat(direPickRate, 64)
+		if err != nil {
+			log.Printf("Error parsing direPickRate: %v for hero %v", err, hero.Name)
+			return nil, err
+		}
+		res = append(res, &RadiantDireWinrate{
+			Hero:            hero,
+			RadiantWinrate:  rdWinrateParsed,
+			RadiantPickRate: rdPickRateParsed,
+			DireWinrate:     direWinrateParsed,
+			DirePickRate:    direPickRateParsed,
+		})
+	}
+	return res, nil
+}
+
 func Heroes() ([]*Hero, error) {
 	parsed, err := getAndParse("https://www.dotabuff.com/heroes")
 	if err != nil {
@@ -253,6 +316,8 @@ func DotaHeroFromLink(link string) *Hero {
 func prettyName(name string) string {
 	if name == "keeper-of-the-light" {
 		return "Keeper of the Light"
+	} else if name == "anti-mage" {
+		return "Anti-Mage"
 	}
 	split := strings.Split(name, "-")
 	caser := cases.Title(language.English)

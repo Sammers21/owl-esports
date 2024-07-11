@@ -1,31 +1,20 @@
 {
   "compilerOptions": {
-    "types": [
-      "bun-types", // add Bun type definitions
-      "./types.d.ts", // add your own type definitions
-      "@types/chrome"
-    ],
-
-    // enable latest features
-    "lib": ["esnext"],
-    "module": "esnext",
-    "target": "esnext",
-
-    // if TS 5.x+
-    "moduleResolution": "bundler",
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
-    "moduleDetection": "force",
-    // if TS 4.x or earlier
-    // "moduleResolution": "nodenext",
-
-    "jsx": "react-jsx", // support JSX
-    "allowJs": true, // allow importing `.js` from `.ts`
-    "esModuleInterop": true, // allow default imports for CommonJS modules
-
-    // best practices
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
-  }
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "jsx": "react"
+  },
+  "include": ["src"],
+  "exclude": ["build", "node_modules"]
 }

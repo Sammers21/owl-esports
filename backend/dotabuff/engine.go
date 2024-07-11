@@ -13,10 +13,12 @@ type Engine struct {
 	// original fields
 	Heroes   []*Hero
 	Counters map[string][]*Counter
+	SideWR   []*RadiantDireWinrate
 
 	// aggregated fields
 	HeroShortNames map[string]*Hero
 	CountersMap    map[string]map[string]*Counter
+	HeroSideWR     map[string]*RadiantDireWinrate
 
 	// internal fields
 	lock  sync.Mutex
@@ -27,8 +29,10 @@ func NewEngine(mysql *MySQL) *Engine {
 	return &Engine{
 		Heroes:         make([]*Hero, 0),
 		HeroShortNames: make(map[string]*Hero),
+		SideWR:         make([]*RadiantDireWinrate, 0),
 		Counters:       make(map[string][]*Counter),
 		CountersMap:    make(map[string]map[string]*Counter),
+		HeroSideWR:     make(map[string]*RadiantDireWinrate),
 		lock:           sync.Mutex{},
 		mysql:          mysql,
 	}
@@ -59,18 +63,41 @@ func (s *Engine) LoadHeroes() error {
 		s.HeroShortNames[strings.ToLower(hero.Name)] = hero
 		addShortNames(&s.HeroShortNames, hero)
 	}
+	log.Info().Msg("Loading radiant and dire winrates...")
+	wrs, err := RaidantAndDireWR()
+	if err != nil {
+		log.Error().Err(err).Msg("Error loading radiant and dire winrates")
+		return err
+	}
+	s.SideWR = wrs
+	for _, wr := range wrs {
+		s.HeroSideWR[wr.Hero.Name] = wr
+	}
+	log.Info().Msg("Radiant and dire winrates has been loaded")
 	return nil
 }
 
-func (s *Engine) FindHero(name string) (*Hero, bool) {
-	hero, ok := s.HeroShortNames[name]
+func (e *Engine) SideMultiplier(hero *Hero, radiant bool) float64 {
+	return 1
+	// wr := e.HeroSideWR[hero.Name]
+	// var multiplier float64
+	// if radiant {
+	// 	multiplier = wr.RadiantWinrate / wr.DireWinrate
+	// } else {
+	// 	multiplier = wr.DireWinrate / wr.RadiantWinrate
+	// }
+	// return multiplier
+}
+
+func (e *Engine) FindHero(name string) (*Hero, bool) {
+	hero, ok := e.HeroShortNames[name]
 	return hero, ok
 }
 
-func (s *Engine) FindHeroes(names []string) ([]*Hero, error) {
+func (e *Engine) FindHeroes(names []string) ([]*Hero, error) {
 	heroes := make([]*Hero, 0, len(names))
 	for _, name := range names {
-		hero, ok := s.FindHero(name)
+		hero, ok := e.FindHero(name)
 		if !ok {
 			return nil, fmt.Errorf("Hero %s not found", name)
 		}
@@ -102,47 +129,44 @@ func addShortNames(mp *map[string]*Hero, hero *Hero) {
 	}
 }
 
-func (s *Engine) LoadCounters() error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func (e *Engine) LoadCounters() error {
+	e.lock.Lock()
+	defer e.lock.Unlock()
 	tick := time.Now()
-	for i, hero := range s.Heroes {
+	for i, hero := range e.Heroes {
 		counters, err := hero.Counters()
 		if err != nil {
 			log.Printf("Error fetching counters for %s: %v", hero.Name, err)
 			continue
 		}
-		log.Info().Msgf("%d/%d: %s has %d counters", i+1, len(s.Heroes), hero.Name, len(counters))
-		if hero.Name == "Keeper Of The Light" {
-			// s.CountersMap[c.Hero.Name]["Keeper Of The Light"] = c
-			fmt.Print("Keeper Of The Light counters: " + fmt.Sprint(counters))
-		}
-		s.Counters[hero.Name] = counters
+		log.Info().Msgf("%d/%d: %s has %d counters", i+1, len(e.Heroes), hero.Name, len(counters))
+		e.Counters[hero.Name] = counters
 		for _, c := range counters {
-			if _, ok := s.CountersMap[c.Hero.Name]; !ok {
-				s.CountersMap[c.Hero.Name] = make(map[string]*Counter, 0)
+			if _, ok := e.CountersMap[c.Hero.Name]; !ok {
+				e.CountersMap[c.Hero.Name] = make(map[string]*Counter, 0)
 			}
-			s.CountersMap[c.Hero.Name][hero.Name] = c
+			e.CountersMap[c.Hero.Name][hero.Name] = c
 		}
 	}
 	log.Info().Msgf("Counters has been loaded in %0.2f seconds", time.Since(tick).Seconds())
 	return nil
 }
 
-func (s *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
+func (e *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 	var radiantWinRate, direWinRate float64
 	for _, hero := range radiant {
 		counterArr := make([]*Counter, 0)
 		for _, enemy := range dire {
-			countersOfHero := s.CountersMap[hero.Name]
+			countersOfHero := e.CountersMap[hero.Name]
 			counterArr = append(counterArr, countersOfHero[enemy.Name])
 		}
-		radiantWinRate += hero.WinRateVsPick(counterArr)
+		
+		radiantWinRate += hero.WinRateVsPick(counterArr, true, e.SideMultiplier(hero, true))
 	}
 	for _, hero := range dire {
 		counterArr := make([]*Counter, 0)
 		for _, enemy := range radiant {
-			countersOfHeroMap := s.CountersMap[hero.Name]
+			countersOfHeroMap := e.CountersMap[hero.Name]
 			if countersOfHeroMap == nil {
 				panic(fmt.Sprintf("Counters not found for %s", hero.Name))
 			}
@@ -152,13 +176,15 @@ func (s *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 			}
 			counterArr = append(counterArr, heroCounterList)
 		}
-		direWinRate += hero.WinRateVsPick(counterArr)
+		direWinRate += hero.WinRateVsPick(counterArr, false, e.SideMultiplier(hero, false))
 	}
-	return radiantWinRate / 5, direWinRate / 5
+	totalR := radiantWinRate / 5
+	totalD := direWinRate / 5
+	return totalR, totalD
 }
 
-func (s *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
-	if !s.Loaded() {
+func (e *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
+	if !e.Loaded() {
 		return 0, 0, fmt.Errorf("Data has not been loaded yet. Please try again in like 30 seconds")
 	}
 	if len(all) != 10 {
@@ -166,25 +192,25 @@ func (s *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
 	}
 	radiant := all[:5]
 	dire := all[5:]
-	radiantHeroes, err := s.FindHeroes(radiant)
+	radiantHeroes, err := e.FindHeroes(radiant)
 	if err != nil {
 		return 0, 0, err
 	}
-	direHeroes, err := s.FindHeroes(dire)
+	direHeroes, err := e.FindHeroes(dire)
 	if err != nil {
 		return 0, 0, err
 	}
-	radiantWinRate, direWinRate := s.PickWinRate(radiantHeroes, direHeroes)
+	radiantWinRate, direWinRate := e.PickWinRate(radiantHeroes, direHeroes)
 	return radiantWinRate, direWinRate, nil
 }
 
-func (s *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64, error) {
-	if !s.Loaded() {
+func (e *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64, error) {
+	if !e.Loaded() {
 		return 0, 0, fmt.Errorf("Data has not been loaded yet. Please try again in like 30 seconds")
 	}
-	rw, dw := s.PickWinRate(match.Radiant, match.Dire)
-	if s.mysql != nil {
-		go s.mysql.InsertDotabuffMatch(match, "v1", rw, dw)
+	rw, dw := e.PickWinRate(match.Radiant, match.Dire)
+	if e.mysql != nil {
+		go e.mysql.InsertDotabuffMatch(match, "v1.1", rw, dw)
 	}
 	return rw, dw, nil
 }
