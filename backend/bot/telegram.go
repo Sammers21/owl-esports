@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -50,7 +51,7 @@ func (b *TelegramBot) Start() error {
 			split := strings.Split(text, ",")
 			log.Info().Str("username", update.Message.From.UserName).Str("text", text).Msg("Received message")
 			if text == "/start" || text == "/help" {
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Hello! I'm a bot that can help you with Dota 2 hero counters. To get started, type 10 hero names, 5 for each team, and I'll tell you the winrate for each team. For example, type 'muerta es beastmaster tiny sd gyro snapfire underlord hoodwink cm'.")
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Hello! I'm a bot that \n 123123")
 				msg.ReplyToMessageID = update.Message.MessageID
 				bot.Send(msg)
 				continue
@@ -66,6 +67,24 @@ func (b *TelegramBot) Start() error {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Radiant winrate: %.2f%%\nDire winrate: %.2f%%", rw, dw))
 				msg.ReplyToMessageID = update.Message.MessageID
 				bot.Send(msg)
+				_, err = b.Engine.GenerateHeatMap(split)
+				if err != nil {
+					log.Error().Err(err).Msg("Error generating heatmap")
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Error generating heatmap: %v", err))	
+					msg.ReplyToMessageID = update.Message.MessageID
+					bot.Send(msg)
+					continue
+				}
+				log.Info().Msg("Sending heatmap...")
+				file, _ := os.Open("heatmap.png")
+				reader := tgbotapi.FileReader{Name: "image.jpg", Reader: file}
+				photo := tgbotapi.NewPhoto(update.Message.Chat.ID, reader)
+				photo.ReplyToMessageID = update.Message.MessageID
+				photo.Caption = `Here is the counter heatmap of the winrate of the heroes you selected.`
+				_, err = bot.Send(photo)
+				if err != nil {
+					log.Error().Err(err).Msg("Error sending photo")
+				}
 			} else if strings.HasPrefix(text, "https://www.dotabuff.com/matches/") {
 				match, err := dotabuff.ExtractHerosFromDBLink(text)
 				if err != nil {

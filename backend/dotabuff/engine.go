@@ -1,7 +1,11 @@
 package dotabuff
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -160,7 +164,7 @@ func (e *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 			countersOfHero := e.CountersMap[hero.Name]
 			counterArr = append(counterArr, countersOfHero[enemy.Name])
 		}
-		
+
 		radiantWinRate += hero.WinRateVsPick(counterArr, true, e.SideMultiplier(hero, true))
 	}
 	for _, hero := range dire {
@@ -190,18 +194,26 @@ func (e *Engine) PickWinRateFromLines(all []string) (float64, float64, error) {
 	if len(all) != 10 {
 		return 0, 0, fmt.Errorf("Invalid number of heroes: %d", len(all))
 	}
-	radiant := all[:5]
-	dire := all[5:]
-	radiantHeroes, err := e.FindHeroes(radiant)
-	if err != nil {
-		return 0, 0, err
-	}
-	direHeroes, err := e.FindHeroes(dire)
+	radiantHeroes, direHeroes, err := e.SplitToDireAndRadiant(all)
 	if err != nil {
 		return 0, 0, err
 	}
 	radiantWinRate, direWinRate := e.PickWinRate(radiantHeroes, direHeroes)
 	return radiantWinRate, direWinRate, nil
+}
+
+func (e *Engine) SplitToDireAndRadiant(all []string) ([]*Hero, []*Hero, error) {
+	radiant := all[:5]
+	dire := all[5:]
+	radiantHeroes, err := e.FindHeroes(radiant)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error finding radiant heroes: %v", err)
+	}
+	direHeroes, err := e.FindHeroes(dire)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error finding dire heroes: %v", err)
+	}
+	return radiantHeroes, direHeroes, nil
 }
 
 func (e *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64, error) {
@@ -213,4 +225,49 @@ func (e *Engine) PickWinRateFromDBMatch(match *DotabuffMatch) (float64, float64,
 		go e.mysql.InsertDotabuffMatch(match, "v1.1", rw, dw)
 	}
 	return rw, dw, nil
+}
+
+// GenerateHeatMap generates a heatmap of the winrate of the heroes
+// you selected and returns the path to the image.
+func (e *Engine) GenerateHeatMap(all []string) (string, error) {
+	radiantHeroes, direHeroes, err := e.SplitToDireAndRadiant(all)
+	if err != nil {
+		return "", err
+	}
+	heroesFullNames := make([]string, 0, len(all))
+	for _, name := range radiantHeroes {
+		heroesFullNames = append(heroesFullNames, name.Name)
+	}
+	for _, name := range direHeroes {
+		heroesFullNames = append(heroesFullNames, name.Name)
+	}
+	resCmdArg := ""
+	heroesStr := strings.Join(heroesFullNames, ",")
+	resCmdArg += fmt.Sprintf("--heroes=\"%s\"", heroesStr)
+	winRatesArg := ""
+	for _, rHero := range radiantHeroes {
+		for _, dHero := range direHeroes {
+			winRatesArg += fmt.Sprintf("%.2f,", e.CountersMap[dHero.Name][rHero.Name].WinRate)
+		}
+		winRatesArg = strings.TrimSuffix(winRatesArg, ",")
+		if rHero != radiantHeroes[len(radiantHeroes)-1] {
+			winRatesArg += ";"
+		}
+	}
+	resCmdArg += fmt.Sprintf(" --winrates=\"%s\"", winRatesArg)
+	cmd := exec.Command("/Users/sammers/miniforge3/bin/python3", "heatmap.py", fmt.Sprintf("--heroes=%s", heroesStr), fmt.Sprintf("--winrates=%s", winRatesArg))
+	execAndPrint(cmd)
+	return resCmdArg, nil
+}
+
+func execAndPrint(cmd *exec.Cmd) {
+	log.Info().Msgf("Executing command: %v", cmd)
+	var stdBuffer bytes.Buffer
+	mw := io.MultiWriter(os.Stdout, &stdBuffer)
+	cmd.Stdout = mw
+	cmd.Stderr = mw
+	if err := cmd.Run(); err != nil {
+		log.Error().Err(err).Msg("Error executing command")
+	}
+	log.Info().Msg(stdBuffer.String())
 }
