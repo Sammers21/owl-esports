@@ -67,7 +67,7 @@ func (b *TelegramBot) Start() error {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Radiant winrate: %.2f%%\nDire winrate: %.2f%%", rw, dw))
 				msg.ReplyToMessageID = update.Message.MessageID
 				bot.Send(msg)
-				_, err = b.Engine.GenerateHeatMap(split)
+				path, err := b.Engine.GenerateHeatMap(split)
 				if err != nil {
 					log.Error().Err(err).Msg("Error generating heatmap")
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Error generating heatmap: %v", err))	
@@ -76,7 +76,7 @@ func (b *TelegramBot) Start() error {
 					continue
 				}
 				log.Info().Msg("Sending heatmap...")
-				file, _ := os.Open("heatmap.png")
+				file, _ := os.Open(path)
 				reader := tgbotapi.FileReader{Name: "image.jpg", Reader: file}
 				photo := tgbotapi.NewPhoto(update.Message.Chat.ID, reader)
 				photo.ReplyToMessageID = update.Message.MessageID
@@ -85,6 +85,7 @@ func (b *TelegramBot) Start() error {
 				if err != nil {
 					log.Error().Err(err).Msg("Error sending photo")
 				}
+				err = os.Remove(path)
 			} else if strings.HasPrefix(text, "https://www.dotabuff.com/matches/") {
 				match, err := dotabuff.ExtractHerosFromDBLink(text)
 				if err != nil {

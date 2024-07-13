@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -165,7 +166,7 @@ func (e *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 			counterArr = append(counterArr, countersOfHero[enemy.Name])
 		}
 
-		radiantWinRate += hero.WinRateVsPick(counterArr, true, e.SideMultiplier(hero, true))
+		radiantWinRate += hero.WinRateVsPick(counterArr, true, 1)
 	}
 	for _, hero := range dire {
 		counterArr := make([]*Counter, 0)
@@ -180,7 +181,7 @@ func (e *Engine) PickWinRate(radiant, dire []*Hero) (float64, float64) {
 			}
 			counterArr = append(counterArr, heroCounterList)
 		}
-		direWinRate += hero.WinRateVsPick(counterArr, false, e.SideMultiplier(hero, false))
+		direWinRate += hero.WinRateVsPick(counterArr, false, 1)
 	}
 	totalR := radiantWinRate / 5
 	totalD := direWinRate / 5
@@ -255,9 +256,13 @@ func (e *Engine) GenerateHeatMap(all []string) (string, error) {
 		}
 	}
 	resCmdArg += fmt.Sprintf(" --winrates=\"%s\"", winRatesArg)
-	cmd := exec.Command("/Users/sammers/miniforge3/bin/python3", "heatmap.py", fmt.Sprintf("--heroes=%s", heroesStr), fmt.Sprintf("--winrates=%s", winRatesArg))
+	out := uuid.New().String() + ".png"
+	cmd := exec.Command("/Users/sammers/miniforge3/bin/python3", "heatmap.py",
+		fmt.Sprintf("--heroes=%s", heroesStr),
+		fmt.Sprintf("--winrates=%s", winRatesArg),
+		fmt.Sprintf("--out=%s", out))
 	execAndPrint(cmd)
-	return resCmdArg, nil
+	return out, nil
 }
 
 func execAndPrint(cmd *exec.Cmd) {

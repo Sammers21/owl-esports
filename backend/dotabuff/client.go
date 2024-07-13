@@ -2,10 +2,13 @@ package dotabuff
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/rs/zerolog/log"
@@ -59,21 +62,62 @@ func (h *Hero) WinRateVsPick(pick []*Counter, radiant bool, SideMultiplier float
 }
 
 func (h *Hero) Counters() ([]*Counter, error) {
-	parsed, err := getAndParse(h.Link + "/counters")
+	// if file counters.json exists, return counters from it
+	// if not, fetch counters from dotabuff and save them to counters.json
+	_ = os.Mkdir("counters", 0755)
+	info, err := os.Stat(fmt.Sprintf("counters/%s.json", h.Name))
+	needToUpdate := err != nil || time.Since(info.ModTime()) > 24*time.Hour
+	countersJson, err := os.ReadFile(fmt.Sprintf("counters/%s.json", h.Name))
+	if err == nil && !needToUpdate {
+		log.Info().Msg("Counters file found, parsing...")
+		counters, err := ParseCounters(countersJson)
+		if err != nil {
+			return nil, err
+		}
+		return counters, nil
+	} else {
+		log.Info().Msg("Counters file not found, fetching from dotabuff...")
+		parsed, err := getAndParse(h.Link + "/counters")
+		if err != nil {
+			return nil, err
+		}
+		res := make([]*Counter, 0)
+		find := htmlquery.Find(parsed, "//table/tbody/tr[@data-link-to]")
+		for _, n := range find {
+			counter, err := CounterNodeToCounter(n)
+			if err != nil {
+				log.Printf("Error parsing counter: %v", err)
+				continue
+			}
+			res = append(res, counter)
+		}
+		err = SaveCounters(res, h.Name)
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+}
+
+func ParseCounters(countersJson []byte) ([]*Counter, error) {
+	res := make([]*Counter, 0)
+	err := json.Unmarshal(countersJson, &res)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]*Counter, 0)
-	find := htmlquery.Find(parsed, "//table/tbody/tr[@data-link-to]")
-	for _, n := range find {
-		counter, err := CounterNodeToCounter(n)
-		if err != nil {
-			log.Printf("Error parsing counter: %v", err)
-			continue
-		}
-		res = append(res, counter)
-	}
 	return res, nil
+}
+
+func SaveCounters(res []*Counter, name string) (err error) {
+	b, err := json.Marshal(res)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(fmt.Sprintf("counters/%s.json", name), b, 0644)
+	if err != nil {
+		return err
+	}
+	return
 }
 
 func NodeToString(n *html.Node) string {
@@ -166,12 +210,23 @@ func HeroFromTr(tr *html.Node) *Hero {
 }
 
 func getAndParse(url string) (*html.Node, error) {
+	return getAndParse0(url, 0)
+}
+
+func getAndParse0(url string, retry int) (*html.Node, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Error().Err(err).Msg("Error fetching page")
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == 429 {
+		log.Warn().Msg("Rate limited")
+		sleepSec := 10 * (retry + 1)
+		log.Info().Int("sleep-sec", sleepSec).Msg("Sleeping...")
+		time.Sleep(time.Duration(sleepSec) * time.Second)
+		return getAndParse0(url, retry+1)
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("Error fetching page: %v", resp.Status)
 	}
@@ -230,77 +285,157 @@ func ChildArray(n *html.Node) []*html.Node {
 }
 
 func RaidantAndDireWR() ([]*RadiantDireWinrate, error) {
-	parsed, err := getAndParse("https://www.dotabuff.com/heroes/meta?view=played&metric=faction")
+	// if file radiant_dire_winrate.json exists, return heroes from it
+	// if not, fetch heroes from dotabuff and save them to radiant_dire_winrate.json
+	radiantDireWinrateJson, err := os.ReadFile("radiant_dire_winrate.json")
+	if err == nil {
+		log.Info().Msg("RadiantDireWinrate file found, parsing...")
+		radiantDireWinrate, err := ParseRadiantDireWinrate(radiantDireWinrateJson)
+		if err != nil {
+
+			return nil, err
+		}
+		return radiantDireWinrate, nil
+	} else {
+		log.Info().Msg("RadiantDireWinrate file not found, fetching from dotabuff...")
+		parsed, err := getAndParse("https://www.dotabuff.com/heroes/meta?view=played&metric=faction")
+		if err != nil {
+			return nil, err
+		}
+		tbody := htmlquery.FindOne(parsed, "//section/footer/article/table/tbody")
+		tbodyChilds := ChildArray(tbody)
+		res := make([]*RadiantDireWinrate, 0)
+		for _, tr := range tbodyChilds {
+			trChilds := ChildArray(tr)
+			tdOne := trChilds[1]
+			a := ChildArray(tdOne)[0]
+			href := htmlquery.SelectAttr(a, "href")
+			hero := DotaHeroFromLink(href)
+			tdTwo := trChilds[2]
+			tdThree := trChilds[3]
+			tdFour := trChilds[4]
+			tdFive := trChilds[5]
+			rdWinrate := htmlquery.SelectAttr(tdThree, "data-value")
+			// parse rdWinrate to float
+			rdWinrateParsed, err := strconv.ParseFloat(rdWinrate, 64)
+			if err != nil {
+				log.Printf("Error parsing rdWinrate: %v for hero %v", err, hero.Name)
+				return nil, err
+			}
+			rdPickRate := htmlquery.SelectAttr(tdTwo, "data-value")
+			rdPickRateParsed, err := strconv.ParseFloat(rdPickRate, 64)
+			if err != nil {
+				log.Printf("Error parsing rdPickRate: %v for hero %v", err, hero.Name)
+				return nil, err
+			}
+			direWinrate := htmlquery.SelectAttr(tdFive, "data-value")
+			direWinrateParsed, err := strconv.ParseFloat(direWinrate, 64)
+			if err != nil {
+				log.Printf("Error parsing direWinrate: %v for hero %v", err, hero.Name)
+				return nil, err
+			}
+			direPickRate := htmlquery.SelectAttr(tdFour, "data-value")
+			direPickRateParsed, err := strconv.ParseFloat(direPickRate, 64)
+			if err != nil {
+				log.Printf("Error parsing direPickRate: %v for hero %v", err, hero.Name)
+				return nil, err
+			}
+			res = append(res, &RadiantDireWinrate{
+				Hero:            hero,
+				RadiantWinrate:  rdWinrateParsed,
+				RadiantPickRate: rdPickRateParsed,
+				DireWinrate:     direWinrateParsed,
+				DirePickRate:    direPickRateParsed,
+			})
+		}
+		err = SaveRadiantDireWinrate(res)
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+}
+
+func SaveRadiantDireWinrate(res []*RadiantDireWinrate) (err error) {
+	log.Info().Msg("Saving radiant dire winrate...")
+	b, err := json.Marshal(res)
+	if err != nil {
+		log.Printf("Error marshalling radiant dire winrate: %v", err)
+		return
+	}
+	err = os.WriteFile("radiant_dire_winrate.json", b, 0644)
+	if err != nil {
+		log.Printf("Error saving radiant dire winrate: %v", err)
+		return
+	}
+	return
+}
+
+func ParseRadiantDireWinrate(radiantDireWinrateJson []byte) ([]*RadiantDireWinrate, error) {
+	res := make([]*RadiantDireWinrate, 0)
+	err := json.Unmarshal(radiantDireWinrateJson, &res)
 	if err != nil {
 		return nil, err
-	}
-	tbody := htmlquery.FindOne(parsed, "//section/footer/article/table/tbody")
-	tbodyChilds := ChildArray(tbody)
-	res := make([]*RadiantDireWinrate, 0)
-	for _, tr := range tbodyChilds {
-		trChilds := ChildArray(tr)
-		tdOne := trChilds[1]
-		a := ChildArray(tdOne)[0]
-		href := htmlquery.SelectAttr(a, "href")
-		hero := DotaHeroFromLink(href)
-		tdTwo := trChilds[2]
-		tdThree := trChilds[3]
-		tdFour := trChilds[4]
-		tdFive := trChilds[5]
-		rdWinrate := htmlquery.SelectAttr(tdThree, "data-value")
-		// parse rdWinrate to float
-		rdWinrateParsed, err := strconv.ParseFloat(rdWinrate, 64)
-		if err != nil {
-			log.Printf("Error parsing rdWinrate: %v for hero %v", err, hero.Name)
-			return nil, err
-		}
-		rdPickRate := htmlquery.SelectAttr(tdTwo, "data-value")
-		rdPickRateParsed, err := strconv.ParseFloat(rdPickRate, 64)
-		if err != nil {
-			log.Printf("Error parsing rdPickRate: %v for hero %v", err, hero.Name)
-			return nil, err
-		}
-		direWinrate := htmlquery.SelectAttr(tdFive, "data-value")
-		direWinrateParsed, err := strconv.ParseFloat(direWinrate, 64)
-		if err != nil {
-			log.Printf("Error parsing direWinrate: %v for hero %v", err, hero.Name)
-			return nil, err
-		}
-		direPickRate := htmlquery.SelectAttr(tdFour, "data-value")
-		direPickRateParsed, err := strconv.ParseFloat(direPickRate, 64)
-		if err != nil {
-			log.Printf("Error parsing direPickRate: %v for hero %v", err, hero.Name)
-			return nil, err
-		}
-		res = append(res, &RadiantDireWinrate{
-			Hero:            hero,
-			RadiantWinrate:  rdWinrateParsed,
-			RadiantPickRate: rdPickRateParsed,
-			DireWinrate:     direWinrateParsed,
-			DirePickRate:    direPickRateParsed,
-		})
 	}
 	return res, nil
 }
 
 func Heroes() ([]*Hero, error) {
-	parsed, err := getAndParse("https://www.dotabuff.com/heroes")
+	// if file heros.json exists, return heroes from it
+	// if not, fetch heroes from dotabuff and save them to heros.json
+	heroesJson, err := os.ReadFile("heroes.json")
+	if err == nil {
+		log.Info().Msg("Heroes file found, parsing...")
+		heroes, err := ParseHeroes(heroesJson)
+		if err != nil {
+			return nil, err
+		}
+		return heroes, nil
+	} else {
+		log.Info().Msg("Heroes file not found, fetching from dotabuff...")
+		parsed, err := getAndParse("https://www.dotabuff.com/heroes")
+		if err != nil {
+			return nil, err
+		}
+		heroes := make(map[string]*Hero)
+		find := htmlquery.Find(parsed, "//table/tbody/*//a[@href]")
+		for _, n := range find {
+			href := htmlquery.SelectAttr(n, "href")
+			// strings.Starts
+			if len(href) > 8 && strings.HasPrefix(href, "/heroes/") {
+				hero := DotaHeroFromLink(href)
+				heroes[hero.Name] = hero
+			}
+		}
+		res := make([]*Hero, 0, len(heroes))
+		for _, hero := range heroes {
+			res = append(res, hero)
+		}
+		err = SaveHeroes(res)
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+}
+
+func SaveHeroes(heroes []*Hero) error {
+	b, err := json.Marshal(heroes)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile("heroes.json", b, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ParseHeroes(b []byte) ([]*Hero, error) {
+	res := make([]*Hero, 0)
+	err := json.Unmarshal(b, &res)
 	if err != nil {
 		return nil, err
-	}
-	heroes := make(map[string]*Hero)
-	find := htmlquery.Find(parsed, "//table/tbody/*//a[@href]")
-	for _, n := range find {
-		href := htmlquery.SelectAttr(n, "href")
-		// strings.Starts
-		if len(href) > 8 && strings.HasPrefix(href, "/heroes/") {
-			hero := DotaHeroFromLink(href)
-			heroes[hero.Name] = hero
-		}
-	}
-	res := make([]*Hero, 0, len(heroes))
-	for _, hero := range heroes {
-		res = append(res, hero)
 	}
 	return res, nil
 }

@@ -1,5 +1,5 @@
 const radiant = document.evaluate(
-  '/html/body/div/div[3]/div/div[3]/div[1]',
+  '/html/body/div/div[3]/div/div[3]/div[3]',
   document,
   null,
   XPathResult.ANY_TYPE,
@@ -7,7 +7,7 @@ const radiant = document.evaluate(
 );
 
 const dire = document.evaluate(
-  '/html/body/div/div[3]/div/div[3]/div[3]',
+  '/html/body/div/div[3]/div/div[3]/div[1]',
   document,
   null,
   XPathResult.ANY_TYPE,
@@ -33,6 +33,10 @@ function getHeroFromNode(node) {
     replaceDash = 'windranger';
   } else if (replaceDash === 'treant') {
     replaceDash = 'treant protector';
+  } else if (replaceDash === 'centaur') {
+    return 'centaur warrunner';
+  } else if (replaceDash === "rattletrap") {
+    return "clockwerk";
   }
   return replaceDash;
 }

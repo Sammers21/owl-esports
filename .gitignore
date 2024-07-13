@@ -2,3 +2,6 @@ backend/backend
 backend/docker-compose.yml
 .idea/
 .vscode/launch.json
+
+/backend/*.json
+/backend/counters/*.json
