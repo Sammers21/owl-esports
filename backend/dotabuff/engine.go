@@ -257,7 +257,7 @@ func (e *Engine) GenerateHeatMap(all []string) (string, error) {
 	}
 	resCmdArg += fmt.Sprintf(" --winrates=\"%s\"", winRatesArg)
 	out := uuid.New().String() + ".png"
-	cmd := exec.Command("/Users/sammers/miniforge3/bin/python3", "heatmap.py",
+	cmd := exec.Command("python3", "heatmap.py",
 		fmt.Sprintf("--heroes=%s", heroesStr),
 		fmt.Sprintf("--winrates=%s", winRatesArg),
 		fmt.Sprintf("--out=%s", out))
