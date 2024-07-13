@@ -40,6 +40,12 @@ func (s *Server) Start(port int) error {
 	// LGD: muerta, es, beastmaster, tiny, sd
 	// IG: gyro, snapfire, underlord, hoodwink, cm
 	// curl -X POST -H "Content-Type: application/json" -d '{"radiant": ["muerta", "es", "beastmaster", "tiny", "sd"], "dire": ["gyro", "snapfire", "underlord", "hoodwink", "cm"]}' http://localhost:8080/pick-winrate_v1
+	mux.HandleFunc("/owl-esports/health", func(w http.ResponseWriter, r *http.Request) {
+		log.Info().Msg("Health check")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status": "ok"}`))
+	})
+
 	mux.HandleFunc("/pick-winrate_v1", func(w http.ResponseWriter, r *http.Request) {
 		if !s.Engine.Loaded() {
 			http.Error(w, "Data has not been loaded yet", http.StatusServiceUnavailable)
