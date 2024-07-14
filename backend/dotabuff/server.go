@@ -44,6 +44,7 @@ func (s *Server) Start(port int) error {
 		w.Header().Set("Content-Type", "application/json")
 		// get param line
 		line := r.URL.Query().Get("line")
+		line = strings.Replace(line, "_", " ", -1);
 		tg := r.URL.Query().Get("tg")
 		if line == "" {
 			http.Error(w, "line is required", http.StatusBadRequest)
@@ -56,6 +57,7 @@ func (s *Server) Start(port int) error {
 		// prase string to int64
 		chatId, err := strconv.ParseInt(tg, 10, 64)
 		if err != nil {
+			log.Err(err).Msgf("Failed pasrsing int: %s", tg);
 			http.Error(w, "tg is invalid", http.StatusBadRequest)
 			return
 		}
