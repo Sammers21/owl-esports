@@ -453,11 +453,14 @@ func prettyName(name string) string {
 		return "Keeper of the Light"
 	} else if name == "anti-mage" {
 		return "Anti-Mage"
-	}
+	} else if name == "queen-of-Pain" || strings.Contains(name, "queen") {
+		return "Queen of Pain"
+	} 
 	split := strings.Split(name, "-")
 	caser := cases.Title(language.English)
 	for i, s := range split {
 		split[i] = caser.String(s)
 	}
+	
 	return strings.Join(split, " ")
 }

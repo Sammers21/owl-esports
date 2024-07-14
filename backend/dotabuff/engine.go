@@ -113,24 +113,26 @@ func (e *Engine) FindHeroes(names []string) ([]*Hero, error) {
 
 func addShortNames(mp *map[string]*Hero, hero *Hero) {
 	addArr := func(arrWords []string) {
-		firstLetter := string(arrWords[0][0])
-		secondLetter := string(arrWords[1][0])
-		combo := firstLetter + secondLetter
+		firstLettersArr := make([]string, 0)
+		for _, word := range arrWords {
+			firstLettersArr = append(firstLettersArr, string(word[0]))
+		}
+		combo := strings.Join(firstLettersArr, "")
 		comboLower := strings.ToLower(combo)
 		(*mp)[combo] = hero
 		(*mp)[comboLower] = hero
 	}
 	space := strings.Split(hero.Name, " ")
 	dash := strings.Split(hero.Name, "-")
-	if len(space) == 2 {
-		addArr(space)
-	} else if len(dash) == 2 {
-		addArr(dash)
-	} else if len(hero.Name) >= 4 {
+	if len(hero.Name) >= 4 {
 		shortName := string(hero.Name[:4])
 		shortNameLower := strings.ToLower(shortName)
 		(*mp)[shortName] = hero
 		(*mp)[shortNameLower] = hero
+	} 
+	if len(space) > 1 {
+		addArr(space)
+		addArr(dash)
 	}
 }
 
@@ -248,6 +250,17 @@ func (e *Engine) GenerateHeatMap(all []string) (string, error) {
 	winRatesArg := ""
 	for _, rHero := range radiantHeroes {
 		for _, dHero := range direHeroes {
+			log.Info().Msgf("rHero: %s, dHero: %s", rHero.Name, dHero.Name)
+			log.Info().Msgf("Couneter: %v", e.CountersMap[dHero.Name][rHero.Name])
+			counterMap := e.CountersMap[dHero.Name]
+			if counterMap == nil {
+				log.Info().Msg("counterMap is null")
+			}
+			counterF := counterMap[rHero.Name]
+			if counterF == nil {
+				log.Info().Msg("CounterF is null")
+			}
+			log.Info().Msgf("Winrate: %v", counterF.WinRate)
 			winRatesArg += fmt.Sprintf("%.2f,", e.CountersMap[dHero.Name][rHero.Name].WinRate)
 		}
 		winRatesArg = strings.TrimSuffix(winRatesArg, ",")
