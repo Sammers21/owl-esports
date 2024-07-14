@@ -8,9 +8,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.io/sammers21/owl-esports/backend/bot"
 	"github.io/sammers21/owl-esports/backend/dotabuff"
-	"github.io/sammers21/owl-esports/backend/http"
 )
 
 func main() {
@@ -27,14 +25,15 @@ func main() {
 		return
 	}
 	engine := dotabuff.NewEngine(mysqlDb)
+	var telegramBot *dotabuff.TelegramBot
 	if telegramToken != "" {
 		log.Info().Str("token", telegramToken).Msg("Starting telegram bot")
-		telegramBot := bot.NewTelegramBot(engine, telegramToken)
+		telegramBot = dotabuff.NewTelegramBot(engine, telegramToken)
 		go telegramBot.Start()
 	} else {
 		log.Info().Msg("Telegram bot token not provided")
 	}
-	server := http.NewServer(engine)
+	server := dotabuff.NewServer(engine, telegramBot)
 	go server.Start(8080)
 	engineUpd := func() {
 		log.Info().Msg("Updating heroes and counters data from dotabuff")
