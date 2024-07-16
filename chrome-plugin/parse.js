@@ -91,6 +91,10 @@ async function main() {
       replaceDash = "timbersaw";
     } else if (replaceDash === "nevermore") {
       replaceDash = "shadow fiend";
+    } else if (replaceDash === "vengefulspirit") {
+      replaceDash = "vengeful spirit";
+    } else if (replaceDash === "centaur") {
+      replaceDash = "centaur warrunner";
     }
     return replaceDash;
   }
