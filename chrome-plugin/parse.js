@@ -95,6 +95,10 @@ async function main() {
       replaceDash = "vengeful spirit";
     } else if (replaceDash === "centaur") {
       replaceDash = "centaur warrunner";
+    } else if (replaceDash === "rattletrap") {
+      replaceDash = "clockwerk";
+    } else if (replaceDash === "queenofpain") {
+      replaceDash = "queen of pain";
     }
     return replaceDash;
   }
