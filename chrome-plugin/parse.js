@@ -7,22 +7,23 @@ function updateClipboard(newClip) {
     },
     () => {
       console.log("Clipboard failed to update");
-    },
+    }
   );
 }
 
-async function sendPickToServer(pick) {
-  const response = await fetch("http://localhost:3000/pick", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pick: pick,
-    }),
-  });
+async function sendPickToServer(tg, line) {
+  line = line.replaceAll(" ", "_");
+  json = {
+    line: line,
+    tg: tg,
+  };
+  console.log("Json sending:", json);
+  const response = await fetch(
+    "https://pvpq.net/owl-esports/pickline?" +
+      new URLSearchParams(json).toString()
+  );
   const data = await response.json();
-  console.log(data);
+  console.log("Response from pick server " + data);
 }
 
 async function main() {
@@ -35,16 +36,32 @@ async function main() {
   }
   console.log("Owl is parsing the page...");
 
-  const radiant = document.evaluate(
-    "/html/body/div/div[3]/div/div[3]/div[3]",
+  const leftTeam = document.evaluate(
+    "/html/body/div/div[3]/div/div[1]/div[1]",
     document,
     null,
     XPathResult.ANY_TYPE,
     null
   );
 
-  const dire = document.evaluate(
+  const rightTeam = document.evaluate(
+    "/html/body/div/div[3]/div/div[1]/div[3]",
+    document,
+    null,
+    XPathResult.ANY_TYPE,
+    null
+  );
+
+  const leftHeroes = document.evaluate(
     "/html/body/div/div[3]/div/div[3]/div[1]",
+    document,
+    null,
+    XPathResult.ANY_TYPE,
+    null
+  );
+
+  const rightHeroes = document.evaluate(
+    "/html/body/div/div[3]/div/div[3]/div[3]",
     document,
     null,
     XPathResult.ANY_TYPE,
@@ -82,9 +99,30 @@ async function main() {
     return heroes.join(",");
   }
 
+  function parseTeam(team, left) {
+    let chindx = left ? 1 : 0;
+    let childNodes = getChildNodes(getChildNodes(team)[chindx])[0];
+    let teamName = childNodes.textContent;
+    let ctag = childNodes.getAttribute("class");
+    let isRadiant = ctag.includes("radiant");
+    console.log("Team Name:", childNodes.textContent, "Is Radiant:", isRadiant);
+    return { team: teamName, isRadiant: isRadiant };
+  }
+
   try {
-    let radiantNode = radiant.iterateNext();
-    let direNode = dire.iterateNext();
+    let lt = leftTeam.iterateNext();
+    let rt = rightTeam.iterateNext();
+    console.log("Left Team: ", lt);
+    console.log("Right Team: ", rt);
+    let leftTeamParsed = parseTeam(lt, true);
+    let rightTeamParsed = parseTeam(rt, false);
+    if (leftTeamParsed.isRadiant) {
+      radiantNode = leftHeroes.iterateNext();
+      direNode = rightHeroes.iterateNext();
+    } else {
+      radiantNode = rightHeroes.iterateNext();
+      direNode = leftHeroes.iterateNext();
+    }
     console.log("Radiant Node: ", radiantNode);
     console.log("Dire Node: ", direNode);
     let childNodes = getChildNodes(radiantNode);
@@ -93,16 +131,17 @@ async function main() {
       let hero = getHeroFromNode(childNodes[i]);
       heroes.push(hero);
     }
-
     let direChildNodes = getChildNodes(direNode);
     for (let i = 0; i < direChildNodes.length; i++) {
       let hero = getHeroFromNode(direChildNodes[i]);
       heroes.push(hero);
     }
     console.log("All Heroes: ", heroes);
-    let command = heroListToCommand(heroes);
+    let command = heroListToCommand(heroes).trim();
     console.log("Command: ", command);
-    updateClipboard(command);
+    let team = leftTeamParsed.isRadiant ? leftTeamParsed.team + " vs " + rightTeamParsed.team : rightTeamParsed.team + " vs " + leftTeamParsed.team;
+    console.log("Match: ", team);
+    sendPickToServer(77107633, command);
   } catch (e) {
     console.log(e);
   }
