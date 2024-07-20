@@ -95,6 +95,8 @@ async function main() {
       replaceDash = "vengeful spirit";
     } else if (replaceDash === "centaur") {
       replaceDash = "centaur warrunner";
+    } else if (replaceDash === "skeleton king") {
+      replaceDash = "wraith king";
     }
     return replaceDash;
   }
@@ -143,7 +145,9 @@ async function main() {
     console.log("All Heroes: ", heroes);
     let command = heroListToCommand(heroes).trim();
     console.log("Command: ", command);
-    let team = leftTeamParsed.isRadiant ? leftTeamParsed.team + " vs " + rightTeamParsed.team : rightTeamParsed.team + " vs " + leftTeamParsed.team;
+    let team = leftTeamParsed.isRadiant
+      ? leftTeamParsed.team + " vs " + rightTeamParsed.team
+      : rightTeamParsed.team + " vs " + leftTeamParsed.team;
     console.log("Match: ", team);
     sendPickToServer(77107633, command);
   } catch (e) {
