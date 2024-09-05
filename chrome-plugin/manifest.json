@@ -1,7 +1,7 @@
 {
-  "name": "Content settings",
-  "version": "0.3",
-  "description": "Uses chrome.contentSettings to display the settings of a given page in the extension's popup.",
+  "name": "Owl Esports",
+  "version": "1.0",
+  "description": "Dota 2 pick assistant",
   "permissions": ["contentSettings", "activeTab"],
   "action": {
     "default_icon": "contentSettings.png",

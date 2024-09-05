@@ -101,6 +101,8 @@ async function main() {
       replaceDash = "queen of pain";
     } else if (replaceDash === "skeleton king") {
       replaceDash = "wraith king";
+    } else if (replaceDash === "wisp") {
+      replaceDash = "io"; 
     }
     return replaceDash;
   }
