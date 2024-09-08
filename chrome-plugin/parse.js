@@ -103,7 +103,9 @@ async function main() {
       replaceDash = "wraith king";
     } else if (replaceDash === "wisp") {
       replaceDash = "io"; 
-    }
+    } else if (replaceDash === "furion") {
+      replaceDash = "np";
+    }  
     return replaceDash;
   }
 
