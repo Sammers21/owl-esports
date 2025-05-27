@@ -107,6 +107,8 @@ async function main() {
       replaceDash = "np";
     } else if (replaceDash === "life stealer") {
       replaceDash = "lifestealer";
+    } else if (replaceDash === "zuus") {
+      replaceDash = "zeus";
     }
     return replaceDash;
   }
