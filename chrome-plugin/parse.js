@@ -20,7 +20,7 @@ async function sendPickToServer(tg, line) {
   console.log("Json sending:", json);
   const response = await fetch(
     "https://pvpq.net/owl-esports/pickline?" +
-      new URLSearchParams(json).toString()
+    new URLSearchParams(json).toString()
   );
   const data = await response.json();
   console.log("Response from pick server " + data);
@@ -102,10 +102,12 @@ async function main() {
     } else if (replaceDash === "skeleton king") {
       replaceDash = "wraith king";
     } else if (replaceDash === "wisp") {
-      replaceDash = "io"; 
+      replaceDash = "io";
     } else if (replaceDash === "furion") {
       replaceDash = "np";
-    }  
+    } else if (replaceDash === "life stealer") {
+      replaceDash = "lifestealer";
+    }
     return replaceDash;
   }
 
